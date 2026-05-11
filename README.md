@@ -242,8 +242,8 @@ void PLC_CycleTask(void) {
 
 ## 🗺️ Roadmap
 
-- [x] Phase 1 — Prise en main STM32 (GPIO, Timer, UART)
-- [x] Phase 2 — Couche I/O (8 TOR IN + 8 TOR OUT + ADC)
+- [ ] Phase 1 — Prise en main STM32 (GPIO, Timer, UART)
+- [ ] Phase 2 — Couche I/O (8 TOR IN + 8 TOR OUT + ADC)
 - [ ] Phase 3 — Moteur d'exécution PLC + interpréteur Ladder
 - [ ] Phase 4 — Modbus RTU RS485
 - [ ] Phase 5 — Tests & validation
