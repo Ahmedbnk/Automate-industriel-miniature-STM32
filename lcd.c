@@ -1,18 +1,26 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   lcd.c                                              :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: abenkrar <abenkrar@1337.student.ma>        +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/05/23 01:25:28 by abenkrar          #+#    #+#             */
-/*   Updated: 2026/05/23 01:25:28 by abenkrar         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
-#include "../Inc/lcd.h"
-
 #define LCD_ADDR (0x27 << 1)
+extern I2C_HandleTypeDef hi2c1;
+static void lcd_send(uint8_t data) {
+    HAL_I2C_Master_Transmit(&hi2c1, LCD_ADDR, &data, 1, 100);
+}
+
+static void lcd_pulse(uint8_t d) {
+    lcd_send(d | 0x04); HAL_Delay(1);
+    lcd_send(d & ~0x04); HAL_Delay(1);
+}
+
+static void lcd_nibble(uint8_t n, uint8_t rs) {
+    lcd_pulse((n & 0xF0) | 0x08 | rs);
+}
+
+void lcd_char(uint8_t ch) {
+    lcd_nibble(ch, 0x01);
+    lcd_nibble(ch << 4, 0x01);
+}
+
+void lcd_print(const char *s) {
+    while (*s) lcd_char((uint8_t)*s++);
+}
 
 void lcd_putnbr(int n) {
     if (n == -2147483648) {
@@ -37,32 +45,12 @@ void lcd_putnbr(int n) {
 }
 extern I2C_HandleTypeDef hi2c1;
 
-static void lcd_send(uint8_t data) {
-    HAL_I2C_Master_Transmit(&hi2c1, LCD_ADDR, &data, 1, 100);
-}
-
-static void lcd_pulse(uint8_t d) {
-    lcd_send(d | 0x04); HAL_Delay(1);
-    lcd_send(d & ~0x04); HAL_Delay(1);
-}
-
-static void lcd_nibble(uint8_t n, uint8_t rs) {
-    lcd_pulse((n & 0xF0) | 0x08 | rs);
-}
-
 void lcd_cmd(uint8_t cmd) {
     lcd_nibble(cmd, 0);
     lcd_nibble(cmd << 4, 0);
 }
 
-void lcd_char(uint8_t ch) {
-    lcd_nibble(ch, 0x01);
-    lcd_nibble(ch << 4, 0x01);
-}
 
-void lcd_print(const char *s) {
-    while (*s) lcd_char((uint8_t)*s++);
-}
 
 void lcd_cursor(uint8_t col, uint8_t row) {
     lcd_cmd(0x80 | (col + (row ? 0x40 : 0x00)));
