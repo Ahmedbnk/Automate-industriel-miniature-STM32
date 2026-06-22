@@ -2,7 +2,7 @@
 /**
   ******************************************************************************
   * @file           : main.c
-  * @brief          : Main program body
+  * @brief          : Main program body - 4 POTS + 4 INPUTS + RELAY LOGIC
   ******************************************************************************
   * @attention
   *
@@ -48,8 +48,23 @@ DMA_HandleTypeDef hdma_adc1;
 I2C_HandleTypeDef hi2c1;
 
 /* USER CODE BEGIN PV */
-/* ADC buffer for DMA - 7 channels: 0-3 pots, 4-6 inputs */
-uint16_t adc_values[7];
+/* ADC buffer - 8 channels (4 pots + 4 inputs) */
+uint16_t adc_values[8];
+
+/* Percentage values */
+uint8_t adc_percent[8];
+
+/* Channel mapping */
+uint32_t adc_channels[8] = {
+    ADC_CHANNEL_0,  // PA0 - Pot 0
+    ADC_CHANNEL_1,  // PA1 - Pot 1
+    ADC_CHANNEL_2,  // PA2 - Pot 2
+    ADC_CHANNEL_3,  // PA3 - Pot 3
+    ADC_CHANNEL_5,  // PA5 - Input 0
+    ADC_CHANNEL_6,  // PA6 - Input 1
+    ADC_CHANNEL_7,  // PA7 - Input 2
+    ADC_CHANNEL_4   // PA4 - Input 3
+};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -58,12 +73,114 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_I2C1_Init(void);
+void read_all_adc_polling(void);
+void calculate_percentages(void);
+void display_on_lcd(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+/**
+  * @brief Read all 8 ADC channels using polling mode
+  */
+void read_all_adc_polling(void)
+{
+    ADC_ChannelConfTypeDef sConfig = {0};
+
+    for (int i = 0; i < 8; i++) {
+        /* Configure the channel */
+        sConfig.Channel = adc_channels[i];
+        sConfig.Rank = 1;
+        sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
+        HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+
+        /* Read the value */
+        HAL_ADC_Start(&hadc1);
+        HAL_ADC_PollForConversion(&hadc1, 10);
+        adc_values[i] = HAL_ADC_GetValue(&hadc1);
+        HAL_ADC_Stop(&hadc1);
+    }
+}
+
+/**
+  * @brief Convert ADC values to percentages (0-4095 → 0-100%)
+  */
+void calculate_percentages(void)
+{
+    for (int i = 0; i < 8; i++) {
+        /* Formula: percentage = (adc_value * 100) / 4095 */
+        adc_percent[i] = (uint8_t)((adc_values[i] * 100) / 4095);
+    }
+}
+
+/**
+  * @brief Display potentiometers and inputs with cycling
+  * Cycles between: P0-P1 with I0-I1, then P2-P3 with I2-I3
+  */
+void display_on_lcd(void)
+{
+    static uint32_t cycle_counter = 0;
+    char buffer[20];
+
+    cycle_counter++;
+
+    if (cycle_counter < 20) {  /* Show P0-P1 with I0-I1 for 2 seconds */
+        /* Line 1: P0: XX% | I0: XX% */
+        HD44780_SetCursor(0, 0);
+        itoa(adc_percent[0], buffer, 10);
+        HD44780_PrintStr("P0:");
+        HD44780_PrintStr(buffer);
+        HD44780_PrintStr("%   ");
+
+        itoa(adc_percent[4], buffer, 10);
+        HD44780_PrintStr("I0:");
+        HD44780_PrintStr(buffer);
+        HD44780_PrintStr("%   ");
+
+        /* Line 2: P1: XX% | I1: XX% */
+        HD44780_SetCursor(0, 1);
+        itoa(adc_percent[1], buffer, 10);
+        HD44780_PrintStr("P1:");
+        HD44780_PrintStr(buffer);
+        HD44780_PrintStr("%   ");
+
+        itoa(adc_percent[5], buffer, 10);
+        HD44780_PrintStr("I1:");
+        HD44780_PrintStr(buffer);
+        HD44780_PrintStr("%   ");
+    }
+    else if (cycle_counter < 40) {  /* Show P2-P3 with I2-I3 for 2 seconds */
+        /* Line 1: P2: XX% | I2: XX% */
+        HD44780_SetCursor(0, 0);
+        itoa(adc_percent[2], buffer, 10);
+        HD44780_PrintStr("P2:");
+        HD44780_PrintStr(buffer);
+        HD44780_PrintStr("%   ");
+
+        itoa(adc_percent[6], buffer, 10);
+        HD44780_PrintStr("I2:");
+        HD44780_PrintStr(buffer);
+        HD44780_PrintStr("%   ");
+
+        /* Line 2: P3: XX% | I3: XX% */
+        HD44780_SetCursor(0, 1);
+        itoa(adc_percent[3], buffer, 10);
+        HD44780_PrintStr("P3:");
+        HD44780_PrintStr(buffer);
+        HD44780_PrintStr("%   ");
+
+        itoa(adc_percent[7], buffer, 10);
+        HD44780_PrintStr("I3:");
+        HD44780_PrintStr(buffer);
+        HD44780_PrintStr("%   ");
+    }
+    else {
+        cycle_counter = 0;  /* Reset cycle */
+    }
+}
 
 /* USER CODE END 0 */
 
@@ -100,15 +217,15 @@ int main(void)
   MX_ADC1_Init();
   MX_I2C1_Init();
 
-  HAL_ADC_Start(&hadc1);
-   HD44780_Init(2);
-   HD44780_Clear();
-   HD44780_SetCursor(0,0);
-   //HD44780_PrintStr("Automate STM32");
-  /* USER CODE BEGIN 2 */
+  /* Initialize LCD */
+  HD44780_Init(2);
+  HD44780_Clear();
+  HD44780_SetCursor(0, 0);
+  HD44780_PrintStr("Automate STM32");
+  HAL_Delay(1000);
+  HD44780_Clear();
 
-  /* Start ADC in DMA continuous mode */
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_values, 7);
+  /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
 
@@ -116,29 +233,34 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  char buffer[20];
-	  itoa(adc_values[0], buffer, 10);
-	  HD44780_SetCursor(0,0);
-	  HD44780_PrintStr(buffer);
+    /* 1. Read all 8 ADC channels */
+    read_all_adc_polling();
+
+    /* 2. Calculate percentages */
+    calculate_percentages();
+
+    /* 3. Display on LCD (cycling) */
+    display_on_lcd();
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 
-    /* Apply relay control logic */
-    /* Relay 1 (PB5): Relay ON if Input A5 > Threshold A0 */
-//    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, (adc_values[4] > adc_values[0]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-//
-//    /* Relay 2 (PB4): Relay ON if Input A6 > Threshold A1 */
-//    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, (adc_values[5] > adc_values[1]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-//
-//    /* Relay 3 (PB3): Relay ON if Input A7 > Threshold A2 */
-//    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, (adc_values[6] > adc_values[2]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-//
-//    /* Relay 4 (PA15): Relay ON if Threshold A3 > 2048 (50%) */
-//    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, (adc_values[3] > 2048) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-//
-//    /* Relay 5 (PA12): OFF for now */
-//    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, GPIO_PIN_RESET);
+    /* Apply relay control logic based on PERCENTAGES */
+    /* Relay 1 (PB5): ON if Input 0 % > Pot 0 % */
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, (adc_percent[4] > adc_percent[0]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
+    /* Relay 2 (PB4): ON if Input 1 % > Pot 1 % */
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, (adc_percent[5] > adc_percent[1]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
+    /* Relay 3 (PB3): ON if Input 2 % > Pot 2 % */
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, (adc_percent[6] > adc_percent[2]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
+    /* Relay 4 (PA15): ON if Input 3 % > Pot 3 % */
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, (adc_percent[7] > adc_percent[3]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
+    /* Relay 5 (PA12): OFF for now */
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, GPIO_PIN_RESET);
 
     HAL_Delay(100);
 
@@ -211,79 +333,23 @@ static void MX_ADC1_Init(void)
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = ENABLE;
-  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.ScanConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 7;
-  hadc1.Init.DMAContinuousRequests = ENABLE;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
   }
 
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = 1;
   sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_1;
-  sConfig.Rank = 2;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_2;
-  sConfig.Rank = 3;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_3;
-  sConfig.Rank = 4;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_5;
-  sConfig.Rank = 5;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_6;
-  sConfig.Rank = 6;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_7;
-  sConfig.Rank = 7;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
