@@ -1,21 +1,23 @@
-#  Mini Automate Programmable — STM32
+#  Automate Programmable STM32 — Configurable par Potentiomètres
 
-> Implémentation d'un automate programmable industriel (PLC) basé sur un microcontrôleur STM32, conforme à la norme **IEC 61131-3**.
+> **Automate programmable STM32 configurable par potentiomètres sans reprogrammation**  
+> Micro-PLC industriel basé sur STM32F411 avec entrées analogiques configurables et sorties relais.
 
 ---
 
-## Table des matières
+## 📋 Table des matières
 
 - [Description](#-description)
-- [Architecture](#-architecture)
-- [Matériel requis](#-matériel-requis)
+- [Objectif du projet](#-objectif-du-projet)
+- [Caractéristiques](#-caractéristiques)
+- [Architecture matérielle](#-architecture-matérielle)
+- [Matériel utilisé](#-matériel-utilisé)
 - [Logiciels & Outils](#-logiciels--outils)
-- [Structure du projet](#-structure-du-projet)
-- [Installation](#-installation)
-- [Cycle automate](#-cycle-automate)
+- [Structure du code](#-structure-du-code)
+- [Installation & Configuration](#-installation--configuration)
+- [Cycle d'exécution](#-cycle-dexécution)
 - [Entrées / Sorties](#-entrées--sorties)
-- [Communication Modbus RTU](#-communication-modbus-rtu)
-- [Langages PLC supportés](#-langages-plc-supportés)
+- [Fonctionnement](#-fonctionnement)
 - [Roadmap](#-roadmap)
 - [Auteur](#-auteur)
 
@@ -23,143 +25,234 @@
 
 ##  Description
 
-Ce projet est réalisé dans le cadre d'un **stage de fin d'études**. Il consiste à concevoir et implémenter un mini automate programmable industriel (PLC) à base de **STM32**, capable de :
+Ce projet de **stage de fin d'études** consiste à concevoir et implémenter un **mini automate programmable (PLC)** basé sur un microcontrôleur **STM32F411** capable de :
 
-- Lire des **entrées TOR et analogiques**
-- Exécuter un **programme Ladder** (IEC 61131-3)
-- Piloter des **sorties TOR** (relais, actionneurs)
-- Communiquer via **Modbus RTU** (RS485)
-- Offrir une supervision via **interface série PC**
+✅ Lire **4 entrées analogiques de configuration** (potentiomètres)  
+✅ Lire **3 entrées analogiques externes** à comparer contre les seuils  
+✅ Exécuter une **logique de comparaison** en temps réel  
+✅ Piloter **5 sorties relais** (24V / 1A)  
+✅ Afficher les valeurs sur **LCD 16x2** via I2C  
+✅ Cycle de **100 ms** (configurable)  
 
----
-
-##  Architecture
-
-```
-┌─────────────────────────────────────────────────┐
-│                   STM32Fxxx                     │
-│                                                 │
-│  ┌──────────┐   ┌──────────┐   ┌────────────┐  │
-│  │ Lecture  │──▶│  Moteur  │──▶│  Écriture  │  │
-│  │ Entrées  │   │  Ladder  │   │  Sorties   │  │
-│  └──────────┘   └──────────┘   └────────────┘  │
-│       │              │               │          │
-│  8x TOR IN      PIL / POL        8x TOR OUT     │
-│  4x ANA IN      Blocs IEC         Relais/LEDs   │
-│                                                 │
-│  ┌──────────────────────────────────────────┐   │
-│  │         Communication UART               │   │
-│  │    Modbus RTU (RS485 / MAX485)           │   │
-│  └──────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────┘
-         │                         │
-    PC Superviseur            ESP32 (optionnel)
-    (SCADA / Terminal)        WiFi / Dashboard Web
-```
+**Avantage principal** : Configuration des seuils sans reprogrammation du microcontrôleur. Les utilisateurs ajustent les potentiomètres pour modifier le comportement.
 
 ---
 
-##  Matériel requis
+##  Objectif du projet
 
-| Composant | Référence | Rôle |
-|---|---|---|
-| Microcontrôleur | STM32F401 / STM32G474 | CPU principal |
-| Programmateur | STLINK-V2 / V3 | Flash + debug |
-| Pilote RS485 | MAX485 / SP485 | Interface Modbus |
-| Isolation optique | PC817 / TLP627 | Protection 24V |
-| Driver sortie | ULN2003 / ULN2803 | Pilotage relais |
-| Relais | SRD-05VDC | Sorties puissance |
-| Convertisseur | AMS1117-3.3 | Alimentation 3.3V |
-| Afficheur (opt.) | LCD 16x2 / OLED 128x64 | HMI local |
+Concevoir une solution **industrielle légère** pour :
+
+- Automatisation simple d'équipements (pompes, ventilateurs, chauffage)
+- Configuration facile par l'opérateur (pas de code requis)
+- Supervision locale via afficheur LCD
+- Architecture modulaire et extensible (possibilité ajout Modbus RTU, SCADA)
+
+---
+
+##  Caractéristiques
+
+| Feature | Détail |
+|---|---|
+| **Microcontrôleur** | STM32F411CEU6 (Black Pill) |
+| **Horloge** | 100 MHz (HSI) |
+| **ADC** | 12-bit, 7 canaux, mode DMA continu |
+| **Entrées analogiques** | 7 canaux (PA0–PA3 pots + PA5–PA7 inputs) |
+| **Sorties numériques** | 5 relais (PB5, PB4, PB3, PA15, PA12) |
+| **Communication** | I2C (LCD 16x2 @ 400 kHz) |
+| **Cycle PLC** | 100 ms (configurable) |
+| **Résolution ADC** | 12-bit → 0–4095 |
+| **Tension d'entrée** | 0–3.3V (analogiques) |
+| **Tension relais** | 5V (contrôlé par transistor/relais) |
+
+---
+
+##  Architecture matérielle
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                    STM32F411CEU6                         │
+│                     (Black Pill)                         │
+│                                                          │
+│   ┌────────────────┐     ┌──────────────┐               │
+│   │  ADC1 (DMA)    │────▶│  Comparator  │               │
+│   │  7 canaux      │     │   Logique    │               │
+│   └────────────────┘     └──────────────┘               │
+│        ▲                         │                       │
+│        │                         ▼                       │
+│        │                  ┌──────────────┐               │
+│   ┌─────────┐            │  GPIO Output │               │
+│   │ PA0–PA3 │◀──Pot──┐   └──────────────┘               │
+│   │ PA5–PA7 │◀─Input─┤         │                        │
+│   └─────────┘        │         ▼                        │
+│                      │   ┌──────────────┐               │
+│   ┌──────────┐       │   │ Relais (x5)  │               │
+│   │ I2C (400│───LCD──┤   └──────────────┘               │
+│   │  kHz)   │       │    PB5, PB4, PB3,                │
+│   └──────────┘       └─→ PA15, PA12                     │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+         │                    │
+    Potentiomètres      Relais/Actionneurs
+    (Seuils)           (Charge 24V / 1A)
+```
+
+---
+
+##  Matériel utilisé
+
+| Composant | Référence | Rôle | Quantité |
+|---|---|---|---|
+| Microcontrôleur | STM32F411CEU6 | CPU principal | 1 |
+| Programmateur | STLINK-V2/V3 | Flash & Debug | 1 |
+| Potentiomètre | 10kΩ pot lin. | Entrées config | 4 |
+| Capteur analogique | 4–20mA / 0–10V | Entrées mesure | 3 |
+| Relais module | SRD-05VDC-SL-C | Sorties | 5 |
+| Afficheur | LCD 16x2 + PCF8574 | HMI local | 1 |
+| Résistances | 10kΩ pull-up | I2C / GPIO | 8 |
+| Condensateurs | 100nF (découp.) | Alimentation | 5 |
+| Convertisseur | AMS1117-3.3V | Régul. 3.3V | 1 |
 
 ---
 
 ##  Logiciels & Outils
 
-- **STM32CubeIDE** — IDE principal (C/C++)
-- **STM32CubeMX** — Configuration des périphériques (GPIO, Timer, ADC, UART)
-- **OpenOCD / STLINK GDB** — Débogage
-- **KiCad / EasyEDA** — Schémas électroniques & PCB
-- **Modbus Poll** — Test Modbus RTU côté PC
-- **Unity** — Framework de tests unitaires C
+- **STM32CubeIDE** — IDE de développement (C)
+- **STM32CubeMX** — Configurateur périphériques (GPIO, ADC, DMA, I2C)
+- **OpenOCD / GDB** — Débogage & monitoring
+- **UART Terminal** — Supervision série (optionnel)
+- **Git** — Versioning
 
 ---
 
-## 📁 Structure du projet
+## 📁 Structure du code
 
 ```
-mini-plc-stm32/
+STM32_Automate/
 │
 ├── Core/
 │   ├── Inc/
-│   │   ├── plc_engine.h        # Moteur d'exécution PLC
-│   │   ├── plc_io.h            # Gestion entrées/sorties
-│   │   ├── plc_ladder.h        # Interpréteur Ladder
-│   │   ├── plc_blocks.h        # Blocs IEC 61131-3 (TON, CTU...)
-│   │   └── modbus_rtu.h        # Driver Modbus RTU
+│   │   ├── main.h
+│   │   ├── stm32f4xx_it.h       # Interruptions
+│   │   └── [...autres headers]
 │   │
 │   └── Src/
-│       ├── main.c
-│       ├── plc_engine.c
-│       ├── plc_io.c
-│       ├── plc_ladder.c
-│       ├── plc_blocks.c
-│       └── modbus_rtu.c
+│       ├── main.c               # Boucle principale + logique relais
+│       ├── stm32f4xx_it.c       # Interruptions
+│       └── stm32f4xx_hal_msp.c  # Initialisation MSP
 │
-├── Drivers/                    # HAL STM32 (généré par CubeMX)
-├── Tests/                      # Tests unitaires Unity
-├── Docs/
-│   ├── schéma_électronique.pdf
-│   ├── architecture.md
-│   └── rapport_stage.pdf
+├── Drivers/
+│   └── STM32F4xx_HAL_Driver/    # HAL généré par CubeMX
 │
-├── .ioc                        # Fichier config CubeMX
-├── .gitignore
+├── Middlewares/
+│   └── liquidcrystal_i2c/       # Pilote LCD I2C
+│
+├── .ioc                         # Config CubeMX
+├── .project
+├── STM32F411CCUx_FLASH.ld       # Linker script
+│
 └── README.md
 ```
 
 ---
 
-## ⚙️ Installation
+## ⚙️ Installation & Configuration
 
-### 1. Cloner le dépôt
+### 1. Prérequis
+
+- **STM32CubeIDE** (dernière version)
+- **STM32CubeMX** (pour régénérer config si besoin)
+- Carte **STM32F411 Black Pill**
+- Programmateur **STLINK-V2/V3**
+
+### 2. Cloner / Importer le projet
 
 ```bash
-git clone git@github.com:Ahmedbnk/Automate-industriel-miniature-bas-sur-microcontr-leur-STM32.git PLC
-cd PLC
+# Cloner (si sur Git)
+git clone <repo-url> STM32_Automate
+cd STM32_Automate
 ```
 
-### 2. Ouvrir dans STM32CubeIDE
-
+Ou importer directement dans **STM32CubeIDE** :
 ```
 File → Import → Existing Projects into Workspace
-→ Sélectionner le dossier mini-plc-stm32
+→ Sélectionner dossier du projet
 ```
 
-### 3. Configurer les périphériques (si besoin)
+### 3. Configuration CubeMX (si modification requise)
 
-Ouvrir `projet.ioc` avec **STM32CubeMX** pour régénérer le code HAL selon votre carte cible.
+Ouvrir `projet.ioc` avec STM32CubeMX :
 
-### 4. Compiler et flasher
+**ADC1 Configuration :**
+- Mode Scan + Continuous
+- DMA Mode : Circular
+- 7 canaux : CH0–3 (pots), CH5–7 (inputs)
+- Résolution : 12-bit
+- Data Alignment : **RIGHT**
 
-```
+**GPIO Configuration :**
+- PA0–PA3, PA5–PA7 : Analogic Input
+- PB5, PB4, PB3, PA15, PA12 : GPIO Output
+- PB6, PB7 : I2C1 (SCL, SDA)
+
+**I2C1 Configuration :**
+- Speed Mode : Fast (400 kHz)
+
+Puis : **Generate Code** (Ctrl+Shift+G)
+
+### 4. Compiler & Flasher
+
+```bash
+# Build
 Project → Build All (Ctrl+B)
-Run → Debug / Run As → STM32 Cortex-M C/C++ Application
+
+# Flash
+Run → Debug (F11)
+# ou
+Run → Run as STM32 Cortex-M Application
 ```
 
 ---
 
-## 🔄 Cycle automate
+## 🔄 Cycle d'exécution
 
-Le cycle PLC s'exécute toutes les **10 ms** via une interruption Timer :
+```
+┌─────────────────────────────────────┐
+│  Boucle principale (100 ms)         │
+├─────────────────────────────────────┤
+│ 1. Lire ADC (DMA continu)           │
+│    adc_values[0–3] = seuils         │
+│    adc_values[4–6] = entrées        │
+│                                     │
+│ 2. Comparer & Décider               │
+│    if (input > seuil) → relay ON    │
+│                                     │
+│ 3. Écrire sorties GPIO              │
+│    HAL_GPIO_WritePin()              │
+│                                     │
+│ 4. Afficher LCD                     │
+│    itoa(adc_values[0])              │
+│                                     │
+│ 5. HAL_Delay(100 ms)                │
+└─────────────────────────────────────┘
+```
+
+**Code simplifié :**
 
 ```c
-// Cycle automate principal (appelé par TIM2 IRQ toutes les 10ms)
-void PLC_CycleTask(void) {
-    PLC_ReadInputs();      // 1. Lecture image entrées (PIL)
-    PLC_ExecuteLadder();   // 2. Exécution programme Ladder
-    PLC_WriteOutputs();    // 3. Écriture image sorties (POL)
-    PLC_UpdateModbus();    // 4. Mise à jour registres Modbus
+while (1) {
+    /* ADC reading via DMA (automatic) */
+    
+    /* Relay logic */
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, 
+        (adc_values[4] > adc_values[0]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    
+    /* LCD Display */
+    char buffer[20];
+    itoa(adc_values[0], buffer, 10);
+    HD44780_SetCursor(0, 0);
+    HD44780_PrintStr(buffer);
+    
+    HAL_Delay(100);
 }
 ```
 
@@ -169,98 +262,147 @@ void PLC_CycleTask(void) {
 
 ### Mapping GPIO
 
-| Broche STM32 | Type | Description |
-|---|---|---|
-| PA0 – PA7 | Entrée TOR | 8 entrées numériques (optocouplées) |
-| PB0 – PB7 | Sortie TOR | 8 sorties relais / transistor |
-| PC0 – PC3 | Entrée ANA | 4 entrées analogiques ADC 12-bit |
-| PA9 / PA10 | UART1 TX/RX | Debug + Modbus RS485 |
-| PB6 / PB7 | UART1 (alt) | Interface série PC |
+| Broche | Type | Rôle | Description |
+|---|---|---|---|
+| **PA0** | ADC_CH0 | Potentiomètre 1 | Seuil Entrée 1 |
+| **PA1** | ADC_CH1 | Potentiomètre 2 | Seuil Entrée 2 |
+| **PA2** | ADC_CH2 | Potentiomètre 3 | Seuil Entrée 3 |
+| **PA3** | ADC_CH3 | Potentiomètre 4 | Seuil Relais 4 |
+| **PA5** | ADC_CH5 | Entrée analogique 1 | Capteur / Signal |
+| **PA6** | ADC_CH6 | Entrée analogique 2 | Capteur / Signal |
+| **PA7** | ADC_CH7 | Entrée analogique 3 | Capteur / Signal |
+| **PB5** | GPIO_Out | Relais 1 | Sortie 1 (24V) |
+| **PB4** | GPIO_Out | Relais 2 | Sortie 2 (24V) |
+| **PB3** | GPIO_Out | Relais 3 | Sortie 3 (24V) |
+| **PA15** | GPIO_Out | Relais 4 | Sortie 4 (24V) |
+| **PA12** | GPIO_Out | Relais 5 | Sortie 5 (24V) |
+| **PB6** | I2C1_SCL | LCD I2C | Afficheur 16x2 |
+| **PB7** | I2C1_SDA | LCD I2C | Afficheur 16x2 |
 
-### Niveaux logiques
+### Valeurs ADC
 
-| Niveau | Tension | État |
+| Niveau | Tension | Valeur 12-bit |
 |---|---|---|
-| Entrée HIGH | 5V – 24V | 1 logique |
-| Entrée LOW | 0V – 1V | 0 logique |
-| Sortie active | VCC relais | Contact fermé |
+| Bas (LOW) | 0V | 0 |
+| Moyen (MID) | 1.65V | ~2048 |
+| Haut (HIGH) | 3.3V | 4095 |
+
+### Logique de contrôle
+
+```
+Relay 1 (PB5) :  if (Input_A5 > Threshold_A0) then ON else OFF
+Relay 2 (PB4) :  if (Input_A6 > Threshold_A1) then ON else OFF
+Relay 3 (PB3) :  if (Input_A7 > Threshold_A2) then ON else OFF
+Relay 4 (PA15) : if (Threshold_A3 > 2048)     then ON else OFF
+Relay 5 (PA12) : (Non utilisé / Réservé)
+```
 
 ---
 
-##  Communication Modbus RTU
+##  Fonctionnement
 
-- **Interface physique** : RS485 half-duplex (MAX485)
-- **Débit** : 9600 / 19200 / 115200 bauds (configurable)
-- **Adresse esclave** : 0x01 (modifiable)
+### Phase de démarrage
 
-### Registres disponibles
+1. **Initialisation STM32** → RCC, GPIO, ADC, DMA, I2C
+2. **Démarrage ADC+DMA** → Lecture continue des 7 canaux
+3. **Init LCD** → Effacement, affichage message démarrage
+4. **Boucle principale** → Cycle 100 ms
 
-| Type | Adresse | Description |
-|---|---|---|
-| Discrete Inputs (1x) | 0x0000 – 0x0007 | 8 entrées TOR |
-| Coils (0x) | 0x0000 – 0x0007 | 8 sorties TOR |
-| Input Registers (3x) | 0x0000 – 0x0003 | 4 entrées analogiques |
-| Holding Registers (4x) | 0x0000 – 0x00FF | Variables internes PLC |
+### Ajustement des seuils
 
-### Fonctions Modbus supportées
+1. **Tourner potentiomètre** → Valeur seuil change (PA0–PA3)
+2. **ADC lit en temps réel** → Mise à jour dans `adc_values[]`
+3. **Logique compare** → Relais commute automatiquement
+4. **LCD affiche** → Valeur actuelle visible
 
-- `0x01` — Read Coils
-- `0x02` — Read Discrete Inputs
-- `0x03` — Read Holding Registers
-- `0x04` — Read Input Registers
-- `0x05` — Write Single Coil
-- `0x06` — Write Single Register
-- `0x10` — Write Multiple Registers
-
----
-
-##  Langages PLC supportés
-
-### Ladder Diagram (LD)
-
-```
-|----[ I0.0 ]----[/I0.1]----( Q0.0 )----|
-|                                        |
-|----[ I0.2 ]---+---( TON T1 100ms )----| 
-|               |                        |
-|         [T1.Q]+-----------( Q0.1 )----|
-```
-
-### Blocs IEC 61131-3 implémentés
-
-| Bloc | Fonction |
-|---|---|
-| `TON` | Temporisation à l'enclenchement |
-| `TOF` | Temporisation au déclenchement |
-| `TP` | Impulsion temporisée |
-| `CTU` | Compteur incrémental |
-| `CTD` | Compteur décrémental |
-| `SR` | Bascule Set/Reset |
-| `RS` | Bascule Reset/Set |
+**Exemple :**
+- Pot A0 = 2500 (50% de 5000)
+- Entrée A5 = 3000 (60% de 5000)
+- Résultat : 3000 > 2500 → **Relay 1 = ON** ✅
 
 ---
 
 ## 🗺️ Roadmap
 
-- [ ] Phase 1 — Prise en main STM32 (GPIO, Timer, UART)
-- [ ] Phase 2 — Couche I/O (8 TOR IN + 8 TOR OUT + ADC)
-- [ ] Phase 3 — Moteur d'exécution PLC + interpréteur Ladder
-- [ ] Phase 4 — Modbus RTU RS485
-- [ ] Phase 5 — Tests & validation
-- [ ] Phase 6 — Documentation finale + soutenance
+### Phase 1 ✅ (En cours)
+- [x] Configuration CubeMX (GPIO, ADC, DMA, I2C)
+- [x] Lecture ADC 7 canaux
+- [x] Logique comparaison & relais
+- [x] Affichage LCD
+- [x] Cycle 100 ms
+
+### Phase 2 (Optionnel)
+- [ ] UART Debug (monitoring en temps réel)
+- [ ] Modbus RTU RS485 (supervision PC)
+- [ ] Sauvegarde configurations en EEPROM
+- [ ] Menu LCD (ajustement via boutons)
+
+### Phase 3 (Futur)
+- [ ] Blocs IEC 61131-3 (TON, CTU, SR...)
+- [ ] Interpréteur Ladder
+- [ ] Dashboard SCADA web
+- [ ] Historique données (SD card)
+
+---
+
+##  Tests & Validation
+
+### Test 1 : Vérifier ADC
+
+```
+Connecter potentiomètre PA0 à 0V → adc_values[0] = 0
+Connecter potentiomètre PA0 à 3.3V → adc_values[0] = 4095
+```
+
+### Test 2 : Vérifier comparaison
+
+```
+Pot A0 = 2000, Entrée A5 = 1500 → Relay OFF
+Pot A0 = 2000, Entrée A5 = 3000 → Relay ON
+```
+
+### Test 3 : Affichage LCD
+
+```
+LCD doit afficher valeur ADC_CH0 en temps réel
+Test rotation potentiomètre → chiffres changent
+```
 
 ---
 
 ## 👤 Auteur
 
-**[BENKRARA AHMED]**  
-Stagiaire — Systèmes Embarqués  
-Encadrant : [ILCHHAB OUSSAMA] · [TERAMAROC TECHNOLOGIE / EST Salé]  
-Année : 2025–2026
+**BENKRARA AHMED**  
+Stagiaire — Systèmes Embarqués & Électronique Industrielle  
+
+**Superviseurs** :  
+- [ILCHHAB OUSSAMA] — Tera Maroc Technologie
+
+**Établissements** :  
+- Tera Maroc Technologie — Chichaoua, Maroc
+- EST Salé — Superviseur académique
+
+**Année académique** : 2025–2026
+
+---
+
+##  Remerciements
+
+Merci à :
+- **Tera Maroc Technologie** pour l'accueil et les ressources
+- **EST Salé** pour l'supervision académique
+- Tous les contributeurs et testeurs
 
 ---
 
 ## 📄 Licence
 
-Ce projet est développé dans un cadre académique (stage).  
+Ce projet est développé dans le cadre d'un stage académique.  
 © 2026 — Tous droits réservés.
+
+---
+
+**Notes techniques** :
+- Plateforme cible : STM32F411CEU6 (Black Pill)
+- Langage : C (STM32 HAL)
+- IDE : STM32CubeIDE 1.13+
