@@ -246,18 +246,11 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-    /* Apply relay control logic based on PERCENTAGES */
-    /* Relay 1 (PB5): ON if Input 0 % > Pot 0 % */
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, (adc_percent[4] > adc_percent[0]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, (adc_percent[4] < adc_percent[0]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, (adc_percent[5] < adc_percent[1]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, (adc_percent[6] < adc_percent[2]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
 
-    /* Relay 2 (PB4): ON if Input 1 % > Pot 1 % */
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, (adc_percent[5] > adc_percent[1]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-
-    /* Relay 3 (PB3): ON if Input 2 % > Pot 2 % */
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, (adc_percent[6] > adc_percent[2]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-
-    /* Relay 4 (PA15): ON if Input 3 % > Pot 3 % */
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, (adc_percent[7] > adc_percent[3]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, (adc_percent[7] < adc_percent[3]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
 
     /* Relay 5 (PA12): OFF for now */
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, GPIO_PIN_RESET);

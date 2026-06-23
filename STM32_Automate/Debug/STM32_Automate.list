@@ -1425,67 +1425,62 @@ int main(void)
     display_on_lcd();
  8000bbc:	f7ff ff0a 	bl	80009d4 <display_on_lcd>
 
+    /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
 
-    /* Apply relay control logic based on PERCENTAGES */
-    /* Relay 1 (PB5): ON if Input 0 % > Pot 0 % */
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, (adc_percent[4] > adc_percent[0]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, (adc_percent[4] < adc_percent[0]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
  8000bc0:	4b22      	ldr	r3, [pc, #136]	@ (8000c4c <main+0xd8>)
  8000bc2:	791a      	ldrb	r2, [r3, #4]
  8000bc4:	4b21      	ldr	r3, [pc, #132]	@ (8000c4c <main+0xd8>)
  8000bc6:	781b      	ldrb	r3, [r3, #0]
  8000bc8:	429a      	cmp	r2, r3
- 8000bca:	bf8c      	ite	hi
- 8000bcc:	2301      	movhi	r3, #1
- 8000bce:	2300      	movls	r3, #0
+ 8000bca:	bf34      	ite	cc
+ 8000bcc:	2301      	movcc	r3, #1
+ 8000bce:	2300      	movcs	r3, #0
  8000bd0:	b2db      	uxtb	r3, r3
  8000bd2:	461a      	mov	r2, r3
  8000bd4:	2120      	movs	r1, #32
  8000bd6:	481e      	ldr	r0, [pc, #120]	@ (8000c50 <main+0xdc>)
  8000bd8:	f001 fd2c 	bl	8002634 <HAL_GPIO_WritePin>
-
-    /* Relay 2 (PB4): ON if Input 1 % > Pot 1 % */
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, (adc_percent[5] > adc_percent[1]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, (adc_percent[5] < adc_percent[1]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
  8000bdc:	4b1b      	ldr	r3, [pc, #108]	@ (8000c4c <main+0xd8>)
  8000bde:	795a      	ldrb	r2, [r3, #5]
  8000be0:	4b1a      	ldr	r3, [pc, #104]	@ (8000c4c <main+0xd8>)
  8000be2:	785b      	ldrb	r3, [r3, #1]
  8000be4:	429a      	cmp	r2, r3
- 8000be6:	bf8c      	ite	hi
- 8000be8:	2301      	movhi	r3, #1
- 8000bea:	2300      	movls	r3, #0
+ 8000be6:	bf34      	ite	cc
+ 8000be8:	2301      	movcc	r3, #1
+ 8000bea:	2300      	movcs	r3, #0
  8000bec:	b2db      	uxtb	r3, r3
  8000bee:	461a      	mov	r2, r3
  8000bf0:	2110      	movs	r1, #16
  8000bf2:	4817      	ldr	r0, [pc, #92]	@ (8000c50 <main+0xdc>)
  8000bf4:	f001 fd1e 	bl	8002634 <HAL_GPIO_WritePin>
-
-    /* Relay 3 (PB3): ON if Input 2 % > Pot 2 % */
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, (adc_percent[6] > adc_percent[2]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, (adc_percent[6] < adc_percent[2]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
  8000bf8:	4b14      	ldr	r3, [pc, #80]	@ (8000c4c <main+0xd8>)
  8000bfa:	799a      	ldrb	r2, [r3, #6]
  8000bfc:	4b13      	ldr	r3, [pc, #76]	@ (8000c4c <main+0xd8>)
  8000bfe:	789b      	ldrb	r3, [r3, #2]
  8000c00:	429a      	cmp	r2, r3
- 8000c02:	bf8c      	ite	hi
- 8000c04:	2301      	movhi	r3, #1
- 8000c06:	2300      	movls	r3, #0
+ 8000c02:	bf34      	ite	cc
+ 8000c04:	2301      	movcc	r3, #1
+ 8000c06:	2300      	movcs	r3, #0
  8000c08:	b2db      	uxtb	r3, r3
  8000c0a:	461a      	mov	r2, r3
  8000c0c:	2108      	movs	r1, #8
  8000c0e:	4810      	ldr	r0, [pc, #64]	@ (8000c50 <main+0xdc>)
  8000c10:	f001 fd10 	bl	8002634 <HAL_GPIO_WritePin>
 
-    /* Relay 4 (PA15): ON if Input 3 % > Pot 3 % */
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, (adc_percent[7] > adc_percent[3]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, (adc_percent[7] < adc_percent[3]) ? GPIO_PIN_SET : GPIO_PIN_RESET);
  8000c14:	4b0d      	ldr	r3, [pc, #52]	@ (8000c4c <main+0xd8>)
  8000c16:	79da      	ldrb	r2, [r3, #7]
  8000c18:	4b0c      	ldr	r3, [pc, #48]	@ (8000c4c <main+0xd8>)
  8000c1a:	78db      	ldrb	r3, [r3, #3]
  8000c1c:	429a      	cmp	r2, r3
- 8000c1e:	bf8c      	ite	hi
- 8000c20:	2301      	movhi	r3, #1
- 8000c22:	2300      	movls	r3, #0
+ 8000c1e:	bf34      	ite	cc
+ 8000c20:	2301      	movcc	r3, #1
+ 8000c22:	2300      	movcs	r3, #0
  8000c24:	b2db      	uxtb	r3, r3
  8000c26:	461a      	mov	r2, r3
  8000c28:	f44f 4100 	mov.w	r1, #32768	@ 0x8000
