@@ -226,37 +226,6 @@ Mini-PLC
 
 ---
 
-# Auteur
-
-**Ahmed BENKRARA**
-
-Licence Professionnelle
-
-Ingénierie des Systèmes Électroniques Embarqués
-
-École Supérieure de Technologie de Salé
-
-Université Mohammed V
-
-Stage réalisé chez **Tera Maroc Technologie**
-
-Encadrant académique :
-
-**Pr. Mohammed SBIHI**
-
-Encadrant professionnel :
-
-**M. Oussama ELCHHAB**
-
----
-
-# Licence
-
-Projet développé dans le cadre d'un stage de fin d'études.
-
-Le code est fourni à des fins pédagogiques et de démonstration.
-
----
 
 <p align="center">
 
